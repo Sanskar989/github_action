@@ -40,9 +40,10 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ghcr.io/${{ github.repository }}:main
+            ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Pass the commit SHA as a build argument to the Dockerfile
           build-args: |
             APP_VERSION=${{ github.sha }}
 
@@ -63,16 +64,15 @@ jobs:
             # Login to GHCR on the EC2 instance
             echo ${{ secrets.GITHUB_TOKEN }} | sudo docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
 
-            # Best practice: Pull the image using the unique commit SHA tag
-            # This ensures we deploy the exact image we just built, not a generic 'latest' tag
-            sudo docker pull ${{ env.IMAGE_NAME }}@${{ steps.meta.outputs.digest }}
+            # Pull the image using the 'main' tag
+            sudo docker pull ghcr.io/${{ github.repository }}:main
 
             # Stop and remove the old container to avoid port conflicts
             sudo docker stop my-app-container || true
             sudo docker rm my-app-container || true
 
             # Run a new container from the new image
-            sudo docker run -d --name my-app-container --restart always -p 3000:3000 ${{ env.IMAGE_NAME }}@${{ steps.meta.outputs.digest }}
+            sudo docker run -d --name my-app-container --restart always -p 3000:3000 ghcr.io/${{ github.repository }}:main
 
             # Clean up old, unused Docker images to save disk space
             sudo docker image prune -a -f
