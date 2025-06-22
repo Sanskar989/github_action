@@ -7,15 +7,14 @@ on:
   workflow_dispatch: # Allow manual triggers
 
 env:
-  # Define a variable for the image name to avoid repetition
+  # This makes it easy to use the image name everywhere
   IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 jobs:
-  # JOB 1: Build the Docker image and push it to a registry
   build:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    permissions: # Grant special permissions to the GITHUB_TOKEN for this job
+    permissions:
       contents: read
       packages: write
     steps:
@@ -47,10 +46,9 @@ jobs:
           build-args: |
             APP_VERSION=${{ github.sha }}
 
-  # JOB 2: Deploy the image to our server
   deploy:
     name: Deploy to EC2
-    needs: build # This is critical: The 'deploy' job will ONLY run if 'build' succeeds.
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to EC2 instance via SSH
@@ -61,13 +59,13 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script: |
-            # Login to GHCR on the EC2 instance
+            # Login to GHCR
             echo ${{ secrets.GITHUB_TOKEN }} | sudo docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
 
             # Pull the image using the 'main' tag
             sudo docker pull ghcr.io/${{ github.repository }}:main
 
-            # Stop and remove the old container to avoid port conflicts
+            # Stop and remove the old container (if any)
             sudo docker stop my-app-container || true
             sudo docker rm my-app-container || true
 
